@@ -211,14 +211,23 @@ button:active,.fb:active,.cc-tab:active{transform:scale(.96);opacity:.85}
 
 /* ===== Editor de legenda (toque na legenda) ===== */
 #cvw{position:relative;width:fit-content;max-width:100%;margin:0 auto}
-#szw{position:absolute;left:6px;top:14%;bottom:14%;width:44px;display:none;touch-action:none;z-index:4}
+#szw{position:absolute;left:0;top:30%;bottom:30%;width:34px;display:none;touch-action:none;z-index:4}
 #szw.on{display:block}
-.szt{position:absolute;left:50%;top:0;bottom:0;width:24px;margin-left:-12px;background:rgba(255,255,255,.4);clip-path:polygon(0 0,100% 0,62% 100%,38% 100%);pointer-events:none}
-.szk{position:absolute;left:50%;top:0;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.55);pointer-events:none}
-#edbar{position:absolute;left:8px;right:8px;display:none;gap:8px;align-items:center;z-index:5}
+.szt{position:absolute;left:50%;top:0;bottom:0;width:16px;margin-left:-8px;background:rgba(255,255,255,.4);clip-path:polygon(0 0,100% 0,62% 100%,38% 100%);pointer-events:none}
+.szk{position:absolute;left:50%;top:0;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.55);pointer-events:none}
+#edbar{position:absolute;left:42px;right:8px;top:50%;transform:translateY(-50%);display:none;gap:8px;align-items:center;z-index:5}
 #edbar.on{display:flex}
 #txed{flex:1;min-width:0;height:42px;font-size:16px;border-radius:21px;background:rgba(28,28,30,.9);color:#fff;padding:0 16px;border:.5px solid rgba(255,255,255,.22);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 #edok{height:42px;padding:0 18px;border-radius:21px;flex:0 0 auto}
+
+#prow{gap:12px;flex-wrap:nowrap}
+#play{font-size:0;width:40px;height:40px;min-width:0;flex:0 0 40px;padding:0;border-radius:50%;background:rgba(120,120,128,.36);color:#fff;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+#play svg{width:18px!important;height:18px!important;margin:0!important;vertical-align:0!important}
+#seek{-webkit-appearance:none;appearance:none;height:28px;background:transparent;flex:1!important;padding:0;margin:0}
+#seek::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:rgba(235,235,245,.3)}
+#seek::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;margin-top:-5px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+#seek::-moz-range-track{height:4px;border-radius:2px;background:rgba(235,235,245,.3)}
+#seek::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:#fff}
 </style>
 </head>
 <body class="nov">
@@ -539,6 +548,7 @@ function fftRun(T,re,im,inv){
   }
   if(inv){for(let i=0;i<N;i++){re[i]/=N;im[i]/=N}}
 }
+const ST0='Salva o vídeo com a legenda. É gravado em tempo real: mantenha a tela ligada.';
 const tick=()=>new Promise(r=>setTimeout(r,0));
 // x: áudio mono. Retorna o áudio com o ruído constante (vento, motor, chiado, zumbido) removido.
 async function nrDSP(x,sr,prog){
@@ -598,7 +608,7 @@ async function buildNR(){
 }
 $('nr').addEventListener('change',async()=>{
   const sw=$('nr'),st=$('st');
-  if(!sw.checked){nrOn=false;nrStop();applyNR();st.textContent='Áudio original restaurado.';return}
+  if(!sw.checked){nrOn=false;nrStop();applyNR();st.textContent=ST0;return}
   if(!ac||!curFile||busy||exporting||nrBusy){sw.checked=false;return}
   nrBusy=true;sw.disabled=true;closeEd();
   try{if(ac.state==='suspended')ac.resume()}catch(e){}
@@ -610,9 +620,9 @@ $('nr').addEventListener('change',async()=>{
   if(!nrBuf){try{nrBuf=await buildNR()}catch(e){nrBuf=null;ok=false}}
   nrBusy=false;sw.disabled=false;st.classList.remove('loading-txt');
   nrOn=true;applyNR();
-  st.textContent=ok?'Ruído removido. Tocando do início já sem ruído.':'Usando redução de ruído simples (não foi possível processar este vídeo).';
+  st.textContent=ST0;
   v.pause();v.currentTime=0;
-  try{await v.play()}catch(e){st.textContent+=' Toque em Play.'}
+  try{await v.play()}catch(e){}
 });
 
 // ===== Editor ao tocar na legenda: tamanho (barra lateral) + edição do texto na hora =====
@@ -624,7 +634,7 @@ function openEd(i){
   edIdx=i;edOrig=g.t;
   const t=$('txed'),bar=$('edbar');
   t.value=g.t;
-  if(S.pos<42){bar.style.top='';bar.style.bottom='10px'}else{bar.style.bottom='';bar.style.top='10px'}
+  
   bar.classList.add('on');$('szw').classList.add('on');updSz();
   t.focus();
 }
@@ -967,7 +977,7 @@ $('auto').onclick=async()=>{
     rs();
     v.currentTime=0.01;
     prog(100,'Pronto');
-    finish('Pronto! '+segs.length+(segs.length===1?' legenda gerada.':' legendas geradas.')+' Personalize no menu Estilo abaixo. Se achar atrasada/adiantada, use "Sincronia" em Estilo > Ajustes.',true);
+    finish('',true);
 
   }catch(err){
     finish('Não consegui gerar agora. Toque em Gerar legenda de novo.',false);
