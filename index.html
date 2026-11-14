@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Legendador</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bangers&family=Montserrat:wght@900&family=Pacifico&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--card:#f2f2f4;--ac:#6c4cff;--mut:#777;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121214;--fg:#f0f0f2;--card:#1f1f23;--mut:#999}}
+:root[data-theme="dark"]{--bg:#121214;--fg:#f0f0f2;--card:#1f1f23;--mut:#999}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px -apple-system,Helvetica,Arial,sans-serif;padding:12px;max-width:560px;margin:auto}
+h1{font-size:20px;margin:4px 0 10px}
+canvas{width:100%;max-height:60vh;object-fit:contain;background:#000;border-radius:12px;display:block}
+video{display:none}
+button,select,input,textarea{font:inherit;color:var(--fg)}
+button{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:10px 14px}
+button.g{background:var(--card);color:var(--fg)}
+input,select,textarea{background:var(--card);border:1px solid #8883;border-radius:8px;padding:8px;width:100%}
+input[type=color]{padding:2px;height:38px}
+input[type=range]{padding:0}
+details{background:var(--card);border-radius:12px;margin:10px 0;padding:10px 12px}
+summary{font-weight:600}
+.r{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;align-items:center}
+.r>*{flex:1}
+label{font-size:12px;color:var(--mut);display:block}
+.seg{display:grid;grid-template-columns:62px 62px 1fr 34px;gap:5px;margin:5px 0}
+.seg input{padding:6px;font-size:14px}
+.seg button{padding:0}
+small{color:var(--mut)}
+</style>
+</head>
+<body>
+<h1>Legendador de vídeos</h1>
+<input type="file" id="file" accept="video/*">
+<canvas id="c" width="360" height="640"></canvas>
+<video id="v" playsinline></video>
+<div class="r"><button id="play">▶ Play</button><input type="range" id="seek" min="0" max="1" step="0.01" value="0" style="flex:4"></div>
+
+<details open><summary>1. Texto e tempos</summary>
+<small>Cole o que é falado no vídeo, escolha quantas palavras por legenda e eu distribuo no tempo. Depois ajuste cada trecho.</small>
+<textarea id="paste" rows="3" placeholder="Cole aqui o texto do vídeo"></textarea>
+<div class="r"><div><label>Palavras por legenda</label><select id="chunk"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>6</option><option>8</option></select></div><button id="split" style="flex:2">Dividir no vídeo</button></div>
+<div class="r"><div><label>Idioma da fala</label><select id="lang"><option value="portuguese">Português</option><option value="english">Inglês</option><option value="spanish">Espanhol</option></select></div><button id="auto" style="flex:2">✨ Gerar legenda</button></div><small id="autost">Transcreve o áudio do vídeo direto no iPhone, sem custo. Na 1ª vez baixa o modelo (~100 MB); depois funciona offline.</small>
+<div class="r"><button class="g" id="addSeg">+ Legenda no tempo atual</button></div>
+<div id="segs"></div>
+</details>
+
+<details open><summary>2. Estilo</summary>
+<div class="r">
+<button class="g" data-p="0">Clássico</button><button class="g" data-p="1">Viral</button><button class="g" data-p="2">Karaokê</button><button class="g" data-p="3">Neon</button>
+</div>
+<div class="r"><div><label>Modo</label><select id="s_mode"><option value="bloco">Tudo junto</option><option value="palavra">Uma palavra por vez</option><option value="acumula">Palavras aparecendo</option><option value="karaoke">Karaokê (destaca)</option></select></div>
+<div><label>Fonte</label><select id="s_font"><option>Montserrat</option><option>Anton</option><option>Bangers</option><option>Permanent Marker</option><option>Pacifico</option><option>Impact</option><option>Arial Black</option><option>Georgia</option><option>Courier New</option><option>Trebuchet MS</option></select></div></div>
+<div class="r"><div><label>Texto</label><input type="color" id="s_color"></div><div><label>Destaque</label><input type="color" id="s_hl"></div><div><label>Contorno</label><input type="color" id="s_stroke"></div><div><label>Fundo</label><input type="color" id="s_bgc"></div></div>
+<div class="r"><div><label>Tamanho</label><input type="range" id="s_size" min="3" max="16" step="0.5"></div><div><label>Contorno</label><input type="range" id="s_sw" min="0" max="20"></div><div><label>Posição (altura)</label><input type="range" id="s_pos" min="10" max="92"></div></div>
+<div class="r"><label><input type="checkbox" id="s_upper" style="width:auto"> MAIÚSCULAS</label><label><input type="checkbox" id="s_bg" style="width:auto"> Caixa de fundo</label><label><input type="checkbox" id="s_pop" style="width:auto"> Efeito pop</label></div>
+</details>
+
+<details open><summary>3. Exportar</summary>
+<div class="r"><button id="exp">Gerar vídeo legendado</button><button class="g" id="srt">Mostrar .srt</button></div>
+<small id="st">O vídeo é gravado em tempo real, então leva a duração dele. Mantenha a tela ligada e esta aba aberta.</small>
+<video id="out" controls playsinline style="display:none;width:100%;margin-top:8px;border-radius:10px"></video>
+<div class="r"><button id="share" class="g" style="display:none">Salvar / compartilhar</button></div>
+<textarea id="srtbox" rows="6" style="display:none"></textarea>
+</details>
+
+<script>
+const $=i=>document.getElementById(i),v=$('v'),cv=$('c'),cx=cv.getContext('2d');
+let curFile=null,segs=[],dur=0,blob=null,exporting=false,ac,gain,dest;
+const S={mode:'palavra',font:'Montserrat',size:9,color:'#ffffff',hl:'#ffe600',stroke:'#000000',bgc:'#000000',sw:8,pos:78,upper:true,bg:false,pop:true};
+const P=[
+{mode:'bloco',font:'Arial Black',size:6,color:'#ffffff',hl:'#ffffff',stroke:'#000000',sw:8,pos:85,upper:false,bg:true,bgc:'#000000',pop:false},
+{mode:'palavra',font:'Montserrat',size:10,color:'#ffffff',hl:'#ffe600',stroke:'#000000',sw:10,pos:60,upper:true,bg:false,pop:true},
+{mode:'karaoke',font:'Anton',size:8,color:'#ffffff',hl:'#ffe600',stroke:'#000000',sw:8,pos:78,upper:true,bg:false,pop:false},
+{mode:'acumula',font:'Bangers',size:9,color:'#ffffff',hl:'#00f0ff',stroke:'#ff00aa',sw:10,pos:70,upper:true,bg:false,pop:true}];
+function sync(){for(const k in S){const e=$('s_'+k);if(!e)continue;if(e.type==='checkbox')e.checked=S[k];else e.value=S[k]}loadFont()}
+function loadFont(){try{document.fonts.load('bold 40px "'+S.font+'"')}catch(e){}}
+for(const k in S){const e=$('s_'+k);e.addEventListener('input',()=>{S[k]=e.type==='checkbox'?e.checked:e.type==='range'?+e.value:e.value;if(k==='font')loadFont()})}
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{Object.assign(S,P[b.dataset.p]);sync()});
+sync();
+
+$('file').onchange=e=>{const f=e.target.files[0];if(!f)return;curFile=f;v.src=URL.createObjectURL(f);v.load()};
+v.onloadedmetadata=()=>{const k=Math.min(1,1280/Math.max(v.videoWidth,v.videoHeight));cv.width=Math.round(v.videoWidth*k);cv.height=Math.round(v.videoHeight*k);dur=v.duration;$('seek').max=dur;v.currentTime=0.01;
+if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)();const s=ac.createMediaElementSource(v);gain=ac.createGain();dest=ac.createMediaStreamDestination();s.connect(gain);gain.connect(ac.destination);s.connect(dest)}catch(e){ac=null}}};
+$('play').onclick=()=>{if(ac&&ac.state==='suspended')ac.resume();v.paused?v.play():v.pause()};
+v.onplay=()=>$('play').textContent='⏸ Pausar';v.onpause=()=>$('play').textContent='▶ Play';
+$('seek').oninput=e=>{v.currentTime=+e.target.value};
+
+function fmt(t){return t.toFixed(2)}
+function draw(){requestAnimationFrame(draw);const W=cv.width,H=cv.height;
+if(!v.videoWidth){cx.fillStyle='#000';cx.fillRect(0,0,W,H);cx.fillStyle='#888';cx.font='16px sans-serif';cx.textAlign='center';cx.fillText('Escolha um vídeo acima',W/2,H/2);return}
+cx.drawImage(v,0,0,W,H);const t=v.currentTime;if(!exporting)$('seek').value=t;
+const g=segs.find(s=>t>=s.s&&t<s.e);if(!g)return;
+let w=g.t.trim().split(/\s+/).filter(Boolean);if(!w.length)return;
+const n=w.length,per=(g.e-g.s)/n;let idx=Math.min(n-1,Math.floor((t-g.s)/per));
+let st0=g.s+idx*per;if(g.w&&g.w.length===n){idx=0;for(let q=0;q<n;q++)if(t>=g.w[q].s)idx=q;st0=g.w[idx].s}
+let list=w,act=-1,age=t-g.s;
+if(S.mode==='palavra'){list=[w[idx]];act=0;age=t-st0}
+else if(S.mode==='acumula'){list=w.slice(0,idx+1);act=idx;age=t-st0}
+else if(S.mode==='karaoke'){act=idx;age=t-g.s}
+if(S.upper)list=list.map(x=>x.toUpperCase());
+const fs=W*S.size/100;cx.save();cx.font=`bold ${fs}px "${S.font}",Impact,sans-serif`;cx.textBaseline='middle';cx.textAlign='left';cx.lineJoin='round';
+const sp=cx.measureText(' ').width,mx=W*.88,L=[];let cur=[],cw=0;
+list.forEach((x,i)=>{const m=cx.measureText(x).width;if(cur.length&&cw+sp+m>mx){L.push({a:cur,w:cw});cur=[];cw=0}cw+=(cur.length?sp:0)+m;cur.push({x,m,i})});L.push({a:cur,w:cw});
+const lh=fs*1.25,cy=H*S.pos/100;
+if(S.pop){const k=0.7+0.3*Math.min(1,age/0.12);cx.translate(W/2,cy);cx.scale(k,k);cx.translate(-W/2,-cy)}
+let y=cy-(L.length*lh)/2+lh/2;
+for(const ln of L){let x=W/2-ln.w/2;
+if(S.bg){cx.globalAlpha=.65;cx.fillStyle=S.bgc;const p=fs*.3;cx.beginPath();cx.roundRect?cx.roundRect(x-p,y-lh/2,ln.w+2*p,lh,p):cx.rect(x-p,y-lh/2,ln.w+2*p,lh);cx.fill();cx.globalAlpha=1}
+for(const o of ln.a){const hot=(S.mode==='karaoke'||S.mode==='acumula')&&o.i===act;
+if(S.sw>0){cx.lineWidth=fs*S.sw/40;cx.strokeStyle=S.stroke;cx.strokeText(o.x,x,y)}
+cx.fillStyle=hot?S.hl:S.mode==='palavra'?S.hl:S.color;if(S.mode==='palavra')cx.fillStyle=S.color;cx.fillText(o.x,x,y);x+=o.m+sp}
+y+=lh}
+cx.restore()}
+draw();
+
+function rs(){const d=$('segs');d.innerHTML='';segs.forEach((g,i)=>{const r=document.createElement('div');r.className='seg';
+r.innerHTML=`<input type="number" step="0.1" value="${fmt(g.s)}" data-i="${i}" data-f="s"><input type="number" step="0.1" value="${fmt(g.e)}" data-i="${i}" data-f="e"><input value="${g.t.replace(/"/g,'&quot;')}" data-i="${i}" data-f="t"><button class="g" data-del="${i}">✕</button>`;d.appendChild(r)})}
+$('segs').addEventListener('input',e=>{const i=e.target.dataset.i,f=e.target.dataset.f;if(i==null)return;segs[i][f]=f==='t'?e.target.value:+e.target.value});
+$('segs').addEventListener('click',e=>{const i=e.target.dataset.del;if(i!=null){segs.splice(+i,1);rs()}});
+$('addSeg').onclick=()=>{const t=v.currentTime||0;segs.push({s:t,e:Math.min(dur||t+2,t+2),t:'Texto'});segs.sort((a,b)=>a.s-b.s);rs()};
+$('split').onclick=()=>{if(!dur){alert('Escolha um vídeo primeiro');return}
+const w=$('paste').value.trim().split(/\s+/).filter(Boolean),c=+$('chunk').value,ch=[];
+for(let i=0;i<w.length;i+=c)ch.push(w.slice(i,i+c).join(' '));
+if(!ch.length)return;const tot=w.length;let a=0;segs=ch.map(x=>{const n=x.split(' ').length,d=dur*n/tot,g={s:a,e:a+d,t:x};a+=d;return g});rs()};
+
+let asr=null,busy=false;
+const TF='https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.1';
+$('auto').onclick=async()=>{
+const st=$('autost');if(busy)return;
+if(!curFile){alert('Escolha um vídeo primeiro');return}
+busy=true;$('auto').disabled=true;
+try{
+st.textContent='Lendo o áudio do vídeo…';
+const buf=await curFile.arrayBuffer();
+const AC=window.AudioContext||window.webkitAudioContext,a=new AC();
+const dec=await new Promise((res,rej)=>{const p=a.decodeAudioData(buf,res,rej);if(p&&p.catch)p.catch(rej)});
+const OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+const oc=new OC(1,Math.ceil(dec.duration*16000),16000);
+const sc=oc.createBufferSource();sc.buffer=dec;sc.connect(oc.destination);sc.start();
+const pr=oc.startRendering();
+const rb=pr&&pr.then?await pr:await new Promise(r=>{oc.oncomplete=e=>r(e.renderedBuffer)});
+const audio=rb.getChannelData(0);
+if(!asr){
+st.textContent='Carregando o modelo…';
+const tf=await import(TF);
+asr=await tf.pipeline('automatic-speech-recognition','onnx-community/whisper-base_timestamped',{dtype:'q8',device:'wasm',progress_callback:p=>{if(p.status==='progress'&&p.progress!=null)st.textContent='Baixando modelo (só na 1ª vez): '+Math.round(p.progress)+'%'}});
+}
+st.textContent='Transcrevendo… pode levar alguns minutos. Não feche esta aba.';
+const out=await asr(audio,{language:$('lang').value,task:'transcribe',return_timestamps:'word',chunk_length_s:30,stride_length_s:5});
+const ws=(out.chunks||[]).map(c=>({x:c.text.trim(),s:c.timestamp[0],e:c.timestamp[1]!=null?c.timestamp[1]:c.timestamp[0]+0.4})).filter(c=>c.x);
+if(!ws.length){st.textContent='Não encontrei fala no vídeo.';return}
+const ck=+$('chunk').value;segs=[];
+for(let i=0;i<ws.length;i+=ck){const gp=ws.slice(i,i+ck);segs.push({s:gp[0].s,e:Math.max(gp[gp.length-1].e,gp[0].s+0.2),t:gp.map(x=>x.x).join(' '),w:gp})}
+for(let i=0;i<segs.length-1;i++){if(segs[i+1].s-segs[i].e<0.5)segs[i].e=segs[i+1].s}
+rs();v.currentTime=0.01;
+st.textContent='Pronto: '+segs.length+' legendas. Revise textos e tempos abaixo.';
+}catch(err){st.textContent='Erro: '+(err&&err.message?err.message:err)}
+busy=false;$('auto').disabled=false};
+function ts(t){const h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=Math.floor(t%60),ms=Math.floor(t%1*1000);const p=(n,l=2)=>String(n).padStart(l,'0');return `${p(h)}:${p(m)}:${p(s)},${p(ms,3)}`}
+$('srt').onclick=()=>{const b=$('srtbox');b.value=segs.map((g,i)=>`${i+1}\n${ts(g.s)} --> ${ts(g.e)}\n${g.t}\n`).join('\n');b.style.display='block';b.select()};
+
+$('exp').onclick=async()=>{
+if(!dur){alert('Escolha um vídeo primeiro');return}
+if(!window.MediaRecorder){$('st').textContent='Este navegador não suporta gravação de vídeo.';return}
+const cs=cv.captureStream(30),tr=[...cs.getVideoTracks()];
+if(dest&&ac){if(ac.state==='suspended')await ac.resume();tr.push(...dest.stream.getAudioTracks());gain.gain.value=0}
+const mt=['video/mp4','video/webm;codecs=vp9,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))||'';
+const rec=new MediaRecorder(new MediaStream(tr),mt?{mimeType:mt,videoBitsPerSecond:6e6}:{}),ch=[];
+rec.ondataavailable=e=>e.data.size&&ch.push(e.data);
+rec.onstop=()=>{exporting=false;if(gain)gain.gain.value=1;blob=new Blob(ch,{type:rec.mimeType||'video/mp4'});const o=$('out');o.src=URL.createObjectURL(blob);o.style.display='block';$('share').style.display='block';$('st').textContent='Pronto! Toque em Salvar / compartilhar.'};
+exporting=true;v.pause();v.currentTime=0;await new Promise(r=>setTimeout(r,300));
+rec.start(500);v.play();$('st').textContent='Gravando… não saia desta tela.';
+v.onended=()=>{if(exporting)rec.stop()}};
+$('share').onclick=async()=>{try{const ext=blob.type.includes('mp4')?'mp4':'webm',f=new File([blob],'legendado.'+ext,{type:blob.type});if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else $('st').textContent='Segure o dedo no vídeo acima para salvar.'}catch(e){$('st').textContent='Segure o dedo no vídeo acima para salvar.'}};
+</script>
+</body>
+</html>
